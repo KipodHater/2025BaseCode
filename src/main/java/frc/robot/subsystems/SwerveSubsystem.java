@@ -23,6 +23,7 @@ import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.InstantCommand;
 import edu.wpi.first.wpilibj2.command.RunCommand;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
+import frc.lib.math.SwerveCalculations;
 import frc.robot.Constants;
 
 import static frc.robot.Constants.ControllerConstants.STICK_DEADBAND;
@@ -39,10 +40,17 @@ public class SwerveSubsystem extends SubsystemBase {
     private final PIDController yController = new PIDController(2.0, 0.0, 0.0);
     private final PIDController headingController = new PIDController(1.25, 0.0, 0.0);
 
+    private ChassisSpeeds lastChassisSpeeds;
+    private double MAX_ACCEL_FORWARD; // dont forget to remove!!!
+
   Field2d field;
     public SwerveSubsystem() {
         gyro = new AHRS();
         field = new Field2d();
+
+        MAX_ACCEL_FORWARD = 1;
+
+        lastChassisSpeeds = new ChassisSpeeds(0, 0,0);
 
         mSwerveMods = new SwerveModule[] {
                 new SwerveModule(0, Constants.Swerve.Mod0.constants),
@@ -54,7 +62,7 @@ public class SwerveSubsystem extends SubsystemBase {
         swerveOdometry = new SwerveDriveOdometry(Constants.Swerve.swerveKinematics, getGyroYaw(), getModulePositions());
         
         currChassisSpeeds = new ChassisSpeeds();
-        headingController.enableContinuousInput(-Math.PI, Math.PI);
+        headingController.enableContinuousInput(-Math.PI, Math.PI); //radians
     }
 
     public void drive(Translation2d translation, double rotation, boolean fieldRelative, boolean isOpenLoop) {
@@ -67,6 +75,10 @@ public class SwerveSubsystem extends SubsystemBase {
                         translation.getX(),
                         translation.getY(),
                         rotation);
+        
+        //add accel limits here!
+        currChassisSpeeds = limitAccel(lastChassisSpeeds, currChassisSpeeds);
+        lastChassisSpeeds = currChassisSpeeds;
 
         SwerveModuleState[] swerveModuleStates = Constants.Swerve.swerveKinematics.toSwerveModuleStates(currChassisSpeeds);
         
@@ -76,10 +88,11 @@ public class SwerveSubsystem extends SubsystemBase {
 
         for (SwerveModule mod : mSwerveMods) {
             mod.setDesiredState(swerveModuleStates[mod.moduleNumber], isOpenLoop);
-            
         }
+
         for (SwerveModuleState state : swerveModuleStates) {
             System.out.println(state.angle.getDegrees());
+            // add logging here
         }
         
     }
@@ -94,10 +107,20 @@ public class SwerveSubsystem extends SubsystemBase {
                 MathUtil.applyDeadband(ySpeed.getAsDouble(), STICK_DEADBAND)).times(MAX_SPEED),
             MathUtil.applyDeadband(angularSpeed.getAsDouble(), STICK_DEADBAND)  * MAX_ANGULAR_VELOCITY
             ,
-            !isFieldOriented.getAsBoolean(),
+            isFieldOriented.getAsBoolean(), // removed the ! from this, check if works!!!
             true),
 
         this);
+    }
+
+    private ChassisSpeeds limitAccel(ChassisSpeeds iSpeeds, ChassisSpeeds fSpeeds){
+        Translation2d forwardLimVector = 
+        SwerveCalculations.calculateForwardLim(
+            iSpeeds.vxMetersPerSecond, iSpeeds.vyMetersPerSecond,
+            fSpeeds.vxMetersPerSecond, fSpeeds.vyMetersPerSecond, 
+            MAX_ACCEL_FORWARD, MAX_SPEED);
+        return new ChassisSpeeds(forwardLimVector.getX(), forwardLimVector.getY(), fSpeeds.omegaRadiansPerSecond); 
+        // for now only works on forward lim!
     }
 
     public Command driveConstantSpeed(double x, double y, double rotations, double time) {
@@ -152,7 +175,7 @@ public class SwerveSubsystem extends SubsystemBase {
     }
 
     public Rotation2d getHeading() {
-        return getPose().getRotation();
+        return getGyroYaw();
     }
 
     public void setHeading(Rotation2d heading) {
@@ -168,6 +191,7 @@ public class SwerveSubsystem extends SubsystemBase {
 
     public Rotation2d getGyroYaw() {
         return Rotation2d.fromDegrees(-(double) gyro.getYaw()); // changed to fuzed heading
+        //maybe minus uneeded?
     }
 
     public void resetModulesToAbsolute() {
@@ -209,7 +233,7 @@ public class SwerveSubsystem extends SubsystemBase {
     }
     public void followTrajectory(SwerveSample sample) {
         // Get the current pose of the robot
-        Pose2d pose = getPose();
+        Pose2d pose = this.getPose();
 
         // Generate the next speeds for the robot
         ChassisSpeeds speeds = new ChassisSpeeds(
@@ -230,10 +254,16 @@ public class SwerveSubsystem extends SubsystemBase {
     public void periodic() {
      swerveOdometry.update(getGyroYaw(), getModulePositions());
       for (SwerveModule mod : mSwerveMods) {
+        
           SmartDashboard.putNumber("Mod " + mod.moduleNumber + " CANcoder", mod.getCANcoder().getDegrees());
           SmartDashboard.putNumber("Mod " + mod.moduleNumber + " Angle", mod.getPosition().angle.getDegrees());
           SmartDashboard.putNumber("Mod " + mod.moduleNumber + " Velocity", mod.getState().speedMetersPerSecond);
+
+          MAX_ACCEL_FORWARD = SmartDashboard.getNumber("Max Forward Accel m/s", 1);
+          SmartDashboard.putNumber("Max Forward Accel m/s", MAX_ACCEL_FORWARD);
+
       }
+    //   Logger.recordOutput("MySwerveModuleStates", getModuleStates());
     //   System.out.println(gyro.getYaw());
         // publisher.set(getModuleStates());
         // chpublisher.set(getCurrentSpeeds());

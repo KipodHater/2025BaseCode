@@ -1,5 +1,10 @@
 package frc.lib.math;
 
+import static edu.wpi.first.units.Units.Degrees;
+
+import edu.wpi.first.math.geometry.Translation2d;
+import edu.wpi.first.math.kinematics.ChassisSpeeds;
+
 public class Conversions {
     
     /**
