@@ -27,7 +27,7 @@ public class Autonomous {
             drive,
             new AutoBindings()
         );
-        autoChooser.addRoutine("aaa", this::followPathAuto);
+        autoChooser.addCmd("aaa", this::followPathAuto);
         autoChooser.select("aaa");
         SmartDashboard.putData("Routine" ,autoChooser);
     }
@@ -37,24 +37,27 @@ public class Autonomous {
 
     
 
-    public AutoRoutine followPathAuto(){
-        AutoRoutine routine = autoFactory.newRoutine("testroutine");
-        AutoTrajectory follow = routine.trajectory("New Path");
+    public Command followPathAuto(){
+        // AutoRoutine routine = autoFactory.newRoutine("testroutine");
+        Command follow = autoFactory.trajectoryCmd("New Path");
 
-        routine.active().onTrue(
-            Commands.sequence(
-                routine.resetOdometry(follow),
-                follow.cmd()
-            )
+        // routine.active().onTrue(
+        //     Commands.sequence(
+        //         routine.resetOdometry(follow),
+        //         follow.cmd()
+        //     )
             
+        // );
+        return Commands.sequence(
+            autoFactory.resetOdometry("New Path"),
+            follow
         );
-        return routine;
     }
 
 
     
     public Command getSelected(){
-       return autoChooser.selectedCommand();
+       return autoChooser.selectedCommandScheduler();
     }
 
 

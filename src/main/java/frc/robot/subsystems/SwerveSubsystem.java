@@ -82,19 +82,7 @@ public class SwerveSubsystem extends SubsystemBase {
                         rotation);
 
         SwerveModuleState[] swerveModuleStates = Constants.Swerve.swerveKinematics.toSwerveModuleStates(currChassisSpeeds);
-        
-
-        SwerveDriveKinematics.desaturateWheelSpeeds(swerveModuleStates, Constants.Swerve.MAX_SPEED);
-        
-
-        for (SwerveModule mod : mSwerveMods) {
-            mod.setDesiredState(swerveModuleStates[mod.moduleNumber], isOpenLoop);
-            
-        }
-        for (SwerveModuleState state : swerveModuleStates) {
-            System.out.println(state.angle.getDegrees());
-        }
-        
+        setModuleStates(swerveModuleStates);        
     }
 
     public Command driveCommand(DoubleSupplier xSpeed, DoubleSupplier ySpeed, DoubleSupplier angularSpeed,
@@ -124,11 +112,7 @@ public class SwerveSubsystem extends SubsystemBase {
         
         SwerveModuleState[] swerveModuleStates = Constants.Swerve.swerveKinematics
                 .toSwerveModuleStates(chassisSpeeds.fromFieldRelativeSpeeds(chassisSpeeds, getGyroYaw()));
-        SwerveDriveKinematics.desaturateWheelSpeeds(swerveModuleStates, Constants.Swerve.MAX_SPEED);
-
-        for (SwerveModule mod : mSwerveMods) {
-            mod.setDesiredState(swerveModuleStates[mod.moduleNumber], true);
-        }
+        setModuleStates(swerveModuleStates);
     }
 
     /* Used by SwerveControllerCommand in Auto */
