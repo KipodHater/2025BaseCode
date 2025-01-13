@@ -15,6 +15,7 @@ import com.kauailabs.navx.frc.AHRS;
 import choreo.trajectory.SwerveSample;
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.controller.PIDController;
+import edu.wpi.first.math.estimator.SwerveDrivePoseEstimator;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
@@ -42,15 +43,16 @@ import static frc.robot.Constants.ControllerConstants.STICK_DEADBAND;
 import static frc.robot.Constants.Swerve.*;
 
 public class SwerveSubsystem extends SubsystemBase {
-    public SwerveDriveOdometry swerveOdometry;
+    // public SwerveDriveOdometry swerveOdometry;
+    public SwerveDrivePoseEstimator poseEstimator;
     public SwerveModule[] mSwerveMods;
     public AHRS gyro;
     private PIDController aprilTagPIDController;
 
     private ChassisSpeeds currChassisSpeeds;
-    private final PIDController xController = new PIDController(10.0, 0.0, 0.0);
-    private final PIDController yController = new PIDController(10.0, 0.0, 0.0);
-    private final PIDController headingController = new PIDController(7.5, 0.0, 0.0);
+    private final PIDController xController = new PIDController(SmartDashboard.getNumber("XKP", 0), 0.0, 0.0);
+    private final PIDController yController = new PIDController(SmartDashboard.getNumber("YKP", 0), 0.0, 0.0);
+    private final PIDController headingController = new PIDController(SmartDashboard.getNumber("RKP", 0), 0.0, 0.0);
 
   Field2d field;
     public SwerveSubsystem() {
@@ -64,8 +66,8 @@ public class SwerveSubsystem extends SubsystemBase {
                 new SwerveModule(3, Constants.Swerve.Mod3.constants)
         };
 
-        swerveOdometry = new SwerveDriveOdometry(Constants.Swerve.swerveKinematics, getGyroYaw(), getModulePositions());
-        
+        // swerveOdometry = new SwerveDriveOdometry(Constants.Swerve.swerveKinematics, getGyroYaw(), getModulePositions());
+        poseEstimator = new SwerveDrivePoseEstimator(swerveKinematics, getGyroYaw(), getModulePositions(), new Pose2d(1,1,new Rotation2d(0,0)));
         currChassisSpeeds = new ChassisSpeeds();
         headingController.enableContinuousInput(-Math.PI, Math.PI);
     }
@@ -111,7 +113,7 @@ public class SwerveSubsystem extends SubsystemBase {
         
         
         SwerveModuleState[] swerveModuleStates = Constants.Swerve.swerveKinematics
-                .toSwerveModuleStates(chassisSpeeds.fromFieldRelativeSpeeds(chassisSpeeds, getGyroYaw()));
+                .toSwerveModuleStates(ChassisSpeeds.fromFieldRelativeSpeeds(chassisSpeeds, getGyroYaw()));
         setModuleStates(swerveModuleStates);
     }
 
@@ -120,7 +122,7 @@ public class SwerveSubsystem extends SubsystemBase {
         SwerveDriveKinematics.desaturateWheelSpeeds(desiredStates, Constants.Swerve.MAX_SPEED);
 
         for (SwerveModule mod : mSwerveMods) {
-            mod.setDesiredState(desiredStates[mod.moduleNumber], true);
+            mod.setDesiredState(desiredStates[mod.moduleNumber], false);
         }
     }
 
@@ -141,11 +143,12 @@ public class SwerveSubsystem extends SubsystemBase {
     }
 
     public Pose2d getPose() {
-        return swerveOdometry.getPoseMeters();
+        return poseEstimator.getEstimatedPosition();
     }
 
     public void setPose(Pose2d pose) {
-        swerveOdometry.resetPosition(getGyroYaw(), getModulePositions(), pose);
+        poseEstimator.resetPose(pose);
+        // System.out.println("SET POSE");
     }
 
     public Rotation2d getHeading() {
@@ -153,14 +156,14 @@ public class SwerveSubsystem extends SubsystemBase {
     }
 
     public void setHeading(Rotation2d heading) {
-        swerveOdometry.resetPosition(getGyroYaw(), getModulePositions(),
-                new Pose2d(getPose().getTranslation(), heading));
+        poseEstimator.resetRotation(heading);
+        // System.out.println("set heading!");
     }
 
 
     public void zeroHeading() {
-        swerveOdometry.resetPosition(getGyroYaw(), getModulePositions(),
-                new Pose2d(getPose().getTranslation(), new Rotation2d()));
+        poseEstimator.resetRotation(new Rotation2d());
+        // System.out.println("Zeroed heading");
     }
 
     public Rotation2d getGyroYaw() {
@@ -222,22 +225,32 @@ public class SwerveSubsystem extends SubsystemBase {
 
 
     
-//       StructArrayPublisher<SwerveModuleState> publisher = NetworkTableInstance.getDefault()
-// .getStructArrayTopic("MyStates", SwerveModuleState.struct).publish();
-//     StructPublisher<ChassisSpeeds> chpublisher = NetworkTableInstance.getDefault()
-//     .getStructTopic("Speeds", getCurrentSpeeds().struct).publish();
+      StructArrayPublisher<SwerveModuleState> publisher = NetworkTableInstance.getDefault()
+.getStructArrayTopic("MyStates", SwerveModuleState.struct).publish();
+    StructPublisher<ChassisSpeeds> chpublisher = NetworkTableInstance.getDefault()
+    .getStructTopic("Speeds", ChassisSpeeds.struct).publish();
+    StructPublisher<Pose2d> posepublisher = NetworkTableInstance.getDefault()
+    .getStructTopic("pose", Pose2d.struct).publish();
 
     @Override
     public void periodic() {
-     swerveOdometry.update(getGyroYaw(), getModulePositions());
+     poseEstimator.update(getGyroYaw(), getModulePositions());
       for (SwerveModule mod : mSwerveMods) {
           SmartDashboard.putNumber("Mod " + mod.moduleNumber + " CANcoder", mod.getCANcoder().getDegrees());
           SmartDashboard.putNumber("Mod " + mod.moduleNumber + " Angle", mod.getPosition().angle.getDegrees());
           SmartDashboard.putNumber("Mod " + mod.moduleNumber + " Velocity", mod.getState().speedMetersPerSecond);
       }
     //   System.out.println(gyro.getYaw());
-        // publisher.set(getModuleStates());
-        // chpublisher.set(getCurrentSpeeds());
+        publisher.set(getModuleStates());
+        chpublisher.set(getCurrentSpeeds());
+        posepublisher.set(getPose());
+        SmartDashboard.putNumber("XKP", SmartDashboard.getNumber("XKP", 1));
+        SmartDashboard.putNumber("YKP", SmartDashboard.getNumber("YKP", 1));
+        SmartDashboard.putNumber("RKP", SmartDashboard.getNumber("RKP", 1));
+
+        xController.setP(SmartDashboard.getNumber("XKP", 0));
+        yController.setP(SmartDashboard.getNumber("YKP", 0));
+        headingController.setP(SmartDashboard.getNumber("RKP", 0));
 
       //System.out.println(getRobotOrientationForSpeaker());
       // System.out.println(mSwerveMods[4].getPosition());

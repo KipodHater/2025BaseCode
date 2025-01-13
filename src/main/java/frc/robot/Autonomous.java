@@ -1,13 +1,18 @@
 package frc.robot;
 
+import java.util.Optional;
+
 import choreo.auto.AutoChooser;
 import choreo.auto.AutoFactory;
 import choreo.auto.AutoRoutine;
 import choreo.auto.AutoTrajectory;
 import choreo.auto.AutoFactory.AutoBindings;
+import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
+import edu.wpi.first.wpilibj2.command.InstantCommand;
 import frc.robot.subsystems.SwerveSubsystem;
 
 public class Autonomous {
@@ -18,6 +23,7 @@ public class Autonomous {
     public Autonomous(){
         drive = new SwerveSubsystem();
         autoChooser = new AutoChooser();
+       
 
         autoFactory = new AutoFactory(
             drive::getPose,
@@ -27,7 +33,9 @@ public class Autonomous {
             drive,
             new AutoBindings()
         );
-        autoChooser.addCmd("aaa", this::followPathAuto);
+
+
+        autoChooser.addRoutine("aaa", this::followPathAuto);
         autoChooser.select("aaa");
         SmartDashboard.putData("Routine" ,autoChooser);
     }
@@ -37,21 +45,28 @@ public class Autonomous {
 
     
 
-    public Command followPathAuto(){
-        // AutoRoutine routine = autoFactory.newRoutine("testroutine");
-        Command follow = autoFactory.trajectoryCmd("New Path");
+    public AutoRoutine followPathAuto(){
+        AutoRoutine routine = autoFactory.newRoutine("testroutine");
+        AutoTrajectory traj = routine.trajectory("New Path");
 
-        // routine.active().onTrue(
-        //     Commands.sequence(
-        //         routine.resetOdometry(follow),
-        //         follow.cmd()
-        //     )
+        
+
+        routine.active().onTrue(
+            Commands.sequence(
+                new InstantCommand(() -> drive.setPose(traj.getInitialPose().get()), drive),
+                // routine.resetOdometry(traj),
+                traj.cmd()
+                // Commands.print("Finished Auto")
+            )
+        );
+
+        return routine;
             
         // );
-        return Commands.sequence(
-            autoFactory.resetOdometry("New Path"),
-            follow
-        );
+        // return Commands.sequence(
+        //     autoFactory.resetOdometry("New Path"),
+        //     follow.
+        // );
     }
 
 
