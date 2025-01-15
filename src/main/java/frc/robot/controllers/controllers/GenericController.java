@@ -34,7 +34,7 @@ public class GenericController implements DriverInterface {
     @Override
     public DoubleSupplier getLeftX() {
         
-        return () -> controller.getRawAxis(0);
+        return () -> -controller.getRawAxis(0);
     }
 
     @Override
@@ -46,6 +46,6 @@ public class GenericController implements DriverInterface {
     @Override
     public DoubleSupplier getRightX() {
         
-        return () -> controller.getRawAxis(4);
+        return () -> -controller.getRawAxis(4);
     }
 }

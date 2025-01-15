@@ -13,9 +13,10 @@ import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.InstantCommand;
+import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.subsystems.SwerveSubsystem;
 
-public class Autonomous {
+public class Autonomous extends SubsystemBase {
     private final SwerveSubsystem drive;
     private final AutoFactory autoFactory;
     private final AutoChooser autoChooser;
@@ -50,11 +51,12 @@ public class Autonomous {
         AutoTrajectory traj = routine.trajectory("New Path");
 
         
-
+        System.out.println( traj.getInitialPose());
+        System.out.println(drive.getPose());
         routine.active().onTrue(
             Commands.sequence(
-                new InstantCommand(() -> drive.setPose(traj.getInitialPose().get()), drive),
-                // routine.resetOdometry(traj),
+                
+                routine.resetOdometry(traj),
                 traj.cmd()
                 // Commands.print("Finished Auto")
             )
@@ -73,6 +75,10 @@ public class Autonomous {
     
     public Command getSelected(){
        return autoChooser.selectedCommandScheduler();
+    }
+
+    public void periodic() {
+
     }
 
 

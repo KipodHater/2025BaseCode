@@ -50,9 +50,9 @@ public class SwerveSubsystem extends SubsystemBase {
     private PIDController aprilTagPIDController;
 
     private ChassisSpeeds currChassisSpeeds;
-    private final PIDController xController = new PIDController(SmartDashboard.getNumber("XKP", 0), 0.0, 0.0);
-    private final PIDController yController = new PIDController(SmartDashboard.getNumber("YKP", 0), 0.0, 0.0);
-    private final PIDController headingController = new PIDController(SmartDashboard.getNumber("RKP", 0), 0.0, 0.0);
+    private final PIDController xController = new PIDController(1, 10, 10);
+    private final PIDController yController = new PIDController(1, 10, 10);
+    private final PIDController headingController = new PIDController(1, 10, 10);
 
   Field2d field;
     public SwerveSubsystem() {
@@ -67,9 +67,10 @@ public class SwerveSubsystem extends SubsystemBase {
         };
 
         // swerveOdometry = new SwerveDriveOdometry(Constants.Swerve.swerveKinematics, getGyroYaw(), getModulePositions());
-        poseEstimator = new SwerveDrivePoseEstimator(swerveKinematics, getGyroYaw(), getModulePositions(), new Pose2d(1,1,new Rotation2d(0,0)));
+        poseEstimator = new SwerveDrivePoseEstimator(swerveKinematics, getGyroYaw(), getModulePositions(), new Pose2d(1,1,new Rotation2d(1,1)));
         currChassisSpeeds = new ChassisSpeeds();
         headingController.enableContinuousInput(-Math.PI, Math.PI);
+
     }
 
     public void drive(Translation2d translation, double rotation, boolean fieldRelative, boolean isOpenLoop) {
@@ -213,14 +214,14 @@ public class SwerveSubsystem extends SubsystemBase {
         Pose2d pose = getPose();
 
         // Generate the next speeds for the robot
-        ChassisSpeeds speeds = new ChassisSpeeds(
+        currChassisSpeeds = new ChassisSpeeds(
             sample.vx + xController.calculate(pose.getX(), sample.x),
             sample.vy + yController.calculate(pose.getY(), sample.y),
             sample.omega + xController.calculate(pose.getRotation().getRadians(), sample.heading)
         );
 
         // Apply the generated speeds
-        driveForAuto(speeds);
+        driveForAuto(currChassisSpeeds);
     }
 
 
@@ -251,6 +252,7 @@ public class SwerveSubsystem extends SubsystemBase {
         xController.setP(SmartDashboard.getNumber("XKP", 0));
         yController.setP(SmartDashboard.getNumber("YKP", 0));
         headingController.setP(SmartDashboard.getNumber("RKP", 0));
+        // SmartDashboard.putNumber("gyro angle", getGyroYaw().getDegrees());
 
       //System.out.println(getRobotOrientationForSpeaker());
       // System.out.println(mSwerveMods[4].getPosition());
